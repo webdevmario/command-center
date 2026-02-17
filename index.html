@@ -332,8 +332,26 @@ option { background: var(--bg-card); }
       <div class="stat-card amber"><div class="stat-label">Quarterly (Mo. Equiv.)</div><div class="stat-value mono" id="subQuarterly">$0</div></div>
       <div class="stat-card green"><div class="stat-label">Annual (Mo. Equiv.)</div><div class="stat-value mono" id="subAnnual">$0</div></div>
     </div>
+    <div class="card" style="padding:18px 24px;margin-bottom:24px">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:12px">Pay Period Breakdown</div>
+        <div style="display:flex;gap:16px">
+          <div style="flex:1;background:var(--bg-input);border-radius:8px;padding:14px 16px">
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">1st — 15th</div>
+            <div class="mono" style="font-size:20px;font-weight:600" id="ppFirst">$0</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px" id="ppFirstCount">0 items</div>
+          </div>
+          <div style="flex:1;background:var(--bg-input);border-radius:8px;padding:14px 16px">
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">16th — 31st</div>
+            <div class="mono" style="font-size:20px;font-weight:600" id="ppSecond">$0</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px" id="ppSecondCount">0 items</div>
+          </div>
+        </div>
+    </div>
     <div class="card">
-      <div class="sub-row-header" style="display:grid;grid-template-columns:1fr 120px 100px 100px 80px"><span>Service</span><span>Category</span><span>Frequency</span><span style="text-align:right">Amount</span><span></span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div class="sub-row-header" style="display:grid;grid-template-columns:1fr 120px 100px 100px 80px;flex:1;border:none;padding:0;margin:0"><span>Service</span><span>Category</span><span>Frequency</span><span style="text-align:right">Amount</span><span></span></div>
+        <select id="subFilter" onchange="renderSubs()" style="width:auto;font-size:11px;padding:5px 10px;margin-left:12px"><option value="">All Categories</option></select>
+      </div>
       <div id="subList"></div>
       <div class="empty-state" id="subEmpty" style="display:none"><div class="empty-icon">🔄</div><p>No recurring items yet</p></div>
     </div>
@@ -360,7 +378,7 @@ const ACCT_ICONS = {'Checking':'🏦','Savings':'💰','Roth 401k':'📈','401k'
 const ACCT_COLORS = {'Checking':'#4a6cf7','Savings':'#34d399','Roth 401k':'#a78bfa','401k':'#a78bfa','IUL':'#f472b6','Rollover IRA':'#22d3ee','Roth IRA':'#60a5fa','IRA':'#22d3ee','HSA':'#ec4899','Brokerage':'#fbbf24','Home Equity':'#6366f1','Vehicle':'#8b5cf6','Crypto':'#f97316','Other':'#64748b'};
 const INSTITUTIONS = ['','Ally','E*Trade','Fidelity','HSA Bank','Pacific Life','PennyMac','Robinhood','Employer Plan','Other'];
 const OWNERS = ['','Mario','Vivian','Joint'];
-const SUB_CATS = ['Housing','Utilities','Insurance','Home Services','Streaming','Software','Memberships','Other'];
+const SUB_CATS = ['Housing','Utilities','Insurance','Home Services','Streaming','Software','Memberships','Donations','Other'];
 const EXP_CATS = ['Groceries','Dining','Gas','Shopping','Medical','Home','Kids','Entertainment','Travel','Other'];
 
 // ========== DATA ==========
@@ -461,11 +479,38 @@ function generateSharedView(){
 // ========== SUBSCRIPTIONS ==========
 function renderSubs(){
   const el=document.getElementById('subList'),emp=document.getElementById('subEmpty');
-  if(!data.subscriptions.length){el.innerHTML='';emp.style.display='block';document.getElementById('subMonthly').textContent='$0';document.getElementById('subQuarterly').textContent='$0';document.getElementById('subAnnual').textContent='$0';return;}
+  if(!data.subscriptions.length){el.innerHTML='';emp.style.display='block';
+    document.getElementById('subMonthly').textContent='$0';document.getElementById('subQuarterly').textContent='$0';document.getElementById('subAnnual').textContent='$0';
+    document.getElementById('ppFirst').textContent='$0';document.getElementById('ppSecond').textContent='$0';
+    document.getElementById('ppFirstCount').textContent='0 items';document.getElementById('ppSecondCount').textContent='0 items';
+    return;}
   emp.style.display='none';let mT=0,qT=0,aT=0;
   data.subscriptions.forEach(s=>{const my=s.amount/(s.splitBy||1);if(s.frequency==='monthly')mT+=my;else if(s.frequency==='quarterly')qT+=my/3;else if(s.frequency==='annual')aT+=my/12;});
   document.getElementById('subMonthly').textContent=fmtP(mT);document.getElementById('subQuarterly').textContent=fmtP(qT);document.getElementById('subAnnual').textContent=fmtP(aT);
-  el.innerHTML=[...data.subscriptions].sort((a,b)=>a.name.localeCompare(b.name)).map(s=>{
+
+  // Pay period split — uses next charge day to bucket monthly items
+  let pp1=0,pp2=0,pp1c=0,pp2c=0;
+  data.subscriptions.forEach(s=>{
+    const my=s.amount/(s.splitBy||1);
+    const moEquiv=s.frequency==='monthly'?my:s.frequency==='quarterly'?my/3:my/12;
+    if(!s.nextCharge)return;
+    const day=parseInt(s.nextCharge.split('-')[2]);
+    if(day<=15){pp1+=moEquiv;pp1c++;}else{pp2+=moEquiv;pp2c++;}
+  });
+  document.getElementById('ppFirst').textContent=fmtP(pp1);
+  document.getElementById('ppSecond').textContent=fmtP(pp2);
+  document.getElementById('ppFirstCount').textContent=pp1c+' item'+(pp1c!==1?'s':'');
+  document.getElementById('ppSecondCount').textContent=pp2c+' item'+(pp2c!==1?'s':'');
+
+  // Populate filter dropdown
+  const filterEl=document.getElementById('subFilter');
+  const cats=[...new Set(data.subscriptions.map(s=>s.category||'General'))].sort();
+  const curFilter=filterEl.value;
+  filterEl.innerHTML='<option value="">All Categories</option>'+cats.map(c=>'<option value="'+c+'"'+(c===curFilter?' selected':'')+'>'+c+'</option>').join('');
+
+  // Filtered list
+  const filtered=curFilter?data.subscriptions.filter(s=>(s.category||'General')===curFilter):data.subscriptions;
+  el.innerHTML=[...filtered].sort((a,b)=>a.name.localeCompare(b.name)).map(s=>{
     const fc=s.frequency==='monthly'?'freq-monthly':s.frequency==='quarterly'?'freq-quarterly':'freq-annual';
     const pc=s.priceHistory&&s.priceHistory.length>1;
     const split=s.splitBy&&s.splitBy>1;
