@@ -33,6 +33,12 @@ export default function BudgetView({ onToast }: BudgetViewProps) {
   const [editAmt, setEditAmt] = useState("");
   const [editDate, setEditDate] = useState("");
 
+  // Reimbursements
+  const [reimbursements, setReimbursements] = useState<Record<string, Array<{ amount: number; description: string; date: string }>>>({});
+  const [reimbOpen, setReimbOpen] = useState(false);
+  const [reimbDesc, setReimbDesc] = useState("");
+  const [reimbAmt, setReimbAmt] = useState("");
+
   // Monthly notes
   const [budgetNotes, setBudgetNotes] = useState<Record<string, string>>({});
   const [noteText, setNoteText] = useState("");
@@ -64,7 +70,13 @@ export default function BudgetView({ onToast }: BudgetViewProps) {
     }).catch(() => {});
   }, []);
 
-  useEffect(() => { loadTargets(); loadNotes(); }, [loadTargets, loadNotes]);
+  const loadReimbursements = useCallback(() => {
+    return api.settings.get<Record<string, Array<{ amount: number; description: string; date: string }>>>("budgetReimbursements").then((res) => {
+      setReimbursements(res.value || {});
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => { loadTargets(); loadNotes(); loadReimbursements(); }, [loadTargets, loadNotes, loadReimbursements]);
 
   // Sync noteText when month or notes data changes
   useEffect(() => {
@@ -84,7 +96,10 @@ export default function BudgetView({ onToast }: BudgetViewProps) {
     return () => clearTimeout(t);
   }, [justAdded]);
 
-  const target = budgetTargets[selectedMonth] || 0;
+  const monthReimbursements = reimbursements[selectedMonth] || [];
+  const reimbTotal = monthReimbursements.reduce((s, r) => s + r.amount, 0);
+  const baseTarget = budgetTargets[selectedMonth] || 0;
+  const target = baseTarget + reimbTotal;
   const spent = expenses.reduce((s, e) => s + e.amount, 0);
   const remaining = target - spent;
   const pct = target > 0 ? (spent / target) * 100 : 0;
@@ -227,6 +242,42 @@ export default function BudgetView({ onToast }: BudgetViewProps) {
     }
   }
 
+  async function saveReimbursement() {
+    const desc = reimbDesc.trim().toUpperCase();
+    const amount = parseFloat(reimbAmt);
+    if (!desc) { onToast("Enter description", true); return; }
+    if (!amount || isNaN(amount) || amount <= 0) { onToast("Enter amount", true); return; }
+
+    const entry = { amount, description: desc, date: today() };
+    const updated = { ...reimbursements, [selectedMonth]: [...monthReimbursements, entry] };
+
+    try {
+      await api.settings.set("budgetReimbursements", updated);
+      setReimbursements(updated);
+      setReimbOpen(false);
+      setReimbDesc("");
+      setReimbAmt("");
+      onToast(`+${fmt(amount)} reimbursed`);
+    } catch {
+      onToast("Failed to save", true);
+    }
+  }
+
+  async function deleteReimbursement(index: number) {
+    const list = [...monthReimbursements];
+    list.splice(index, 1);
+    const updated = { ...reimbursements, [selectedMonth]: list };
+    if (list.length === 0) delete updated[selectedMonth];
+
+    try {
+      await api.settings.set("budgetReimbursements", updated);
+      setReimbursements(updated);
+      onToast("Reimbursement removed");
+    } catch {
+      onToast("Failed to delete", true);
+    }
+  }
+
   function saveNote(text: string) {
     const trimmed = text.trim();
     const updated = { ...budgetNotes };
@@ -332,6 +383,12 @@ export default function BudgetView({ onToast }: BudgetViewProps) {
         >
           Set Target
         </button>
+        <button
+          className="btn btn-sm"
+          onClick={() => setReimbOpen(true)}
+        >
+          Reimburse
+        </button>
         {selectedMonth !== curMo() && (
           <button
             className="btn btn-sm"
@@ -373,6 +430,9 @@ export default function BudgetView({ onToast }: BudgetViewProps) {
               </span>
               <span className="text-xs text-text-muted">
                 Target: <span className="font-mono">{fmt(target)}</span>
+                {reimbTotal > 0 && (
+                  <span className="text-green ml-1">(+{fmt(reimbTotal)} reimb.)</span>
+                )}
               </span>
             </div>
           </>
@@ -529,6 +589,68 @@ export default function BudgetView({ onToast }: BudgetViewProps) {
               </div>
             </button>
           ))}
+        </div>
+      </Modal>
+
+      {/* Reimbursement Modal */}
+      <Modal
+        open={reimbOpen}
+        onClose={() => setReimbOpen(false)}
+        title="Add Reimbursement"
+      >
+        <p className="text-[13px] text-text-dim mb-5">
+          Got money back? This bumps your budget for {moLabel(selectedMonth)}.
+        </p>
+        <div className="flex flex-col gap-3">
+          <div className="input-group">
+            <label>What was reimbursed?</label>
+            <input
+              type="text"
+              placeholder="e.g. Work travel, insurance refund"
+              value={reimbDesc}
+              onChange={(e) => setReimbDesc(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") saveReimbursement(); }}
+              autoCapitalize="sentences"
+            />
+          </div>
+          <div className="input-group">
+            <label>Amount</label>
+            <input
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+              inputMode="decimal"
+              value={reimbAmt}
+              onChange={(e) => setReimbAmt(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") saveReimbursement(); }}
+            />
+          </div>
+        </div>
+        {monthReimbursements.length > 0 && (
+          <div className="mt-5 pt-4 border-t border-border">
+            <div className="text-xs text-text-muted mb-2 uppercase tracking-wider">This month's reimbursements</div>
+            {monthReimbursements.map((r, i) => (
+              <div key={i} className="flex items-center justify-between py-2 px-2 rounded-lg hover:bg-white/[0.03]">
+                <div>
+                  <div className="text-sm">{r.description}</div>
+                  <div className="text-xs text-text-muted">{fmtDate(r.date)}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-sm text-green">+{fmt(r.amount)}</span>
+                  <button
+                    className="text-xs text-red opacity-60 hover:opacity-100"
+                    onClick={() => deleteReimbursement(i)}
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex justify-end gap-2.5 mt-4 pt-4 border-t border-border">
+          <button className="btn" onClick={() => setReimbOpen(false)}>Cancel</button>
+          <button className="btn btn-primary" onClick={saveReimbursement}>Add</button>
         </div>
       </Modal>
 
