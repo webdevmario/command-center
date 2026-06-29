@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "../db/index.js";
 import { accounts } from "../db/schema.js";
 import { eq } from "drizzle-orm";
+import { today as todayStr } from "../lib/date.js";
 
 const router = Router();
 
@@ -26,7 +27,7 @@ router.get("/:id", (req, res) => {
 router.post("/", (req, res) => {
   const id =
     Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayStr();
   const body = req.body;
 
   const row = {
@@ -55,7 +56,7 @@ router.put("/:id", (req, res) => {
     .get();
   if (!existing) return res.status(404).json({ error: "Not found" });
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayStr();
   const body = req.body;
 
   db.update(accounts)

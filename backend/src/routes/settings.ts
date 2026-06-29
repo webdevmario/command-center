@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "../db/index.js";
 import { settings, accounts, subscriptions, expenses } from "../db/schema.js";
 import { eq } from "drizzle-orm";
+import { today as todayStr } from "../lib/date.js";
 
 const router = Router();
 
@@ -107,7 +108,7 @@ router.get("/data/export", (_req, res) => {
 // POST /api/data/import — restore from backup
 router.post("/data/import", (req, res) => {
   const data = req.body;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayStr();
 
   try {
     // Clear existing data

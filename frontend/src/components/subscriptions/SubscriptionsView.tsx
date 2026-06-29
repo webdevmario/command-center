@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "../../lib/api";
-import { fmtP } from "../../lib/formatters";
+import { fmtP, curMo } from "../../lib/formatters";
 import StatCard from "../layout/StatCard";
 import SubscriptionForm from "./SubscriptionForm";
 import type { Subscription } from "../../types";
@@ -84,7 +84,7 @@ export default function SubscriptionsView({ onToast }: SubscriptionsViewProps) {
   });
 
   // Pay period breakdown with effective dates and itemized lists
-  const currentMonth = new Date().toISOString().slice(0, 7);
+  const currentMonth = curMo();
   let pp1 = 0, pp2 = 0;
   const pp1Items: { name: string; amount: number; actualAmount: number; day: number; frequency: string; thisMonth: boolean }[] = [];
   const pp2Items: { name: string; amount: number; actualAmount: number; day: number; frequency: string; thisMonth: boolean }[] = [];

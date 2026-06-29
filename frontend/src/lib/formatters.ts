@@ -52,7 +52,8 @@ export function moLabel(ym: string): string {
   return `${months[parseInt(m) - 1]} ${y}`;
 }
 
-/** Today's date as YYYY-MM-DD */
+/** Today's date as YYYY-MM-DD (local time) */
 export function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }

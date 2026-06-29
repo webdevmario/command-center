@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "../db/index.js";
 import { expenses } from "../db/schema.js";
 import { eq, desc } from "drizzle-orm";
+import { today } from "../lib/date.js";
 
 const router = Router();
 
@@ -42,7 +43,7 @@ router.post("/", (req, res) => {
   // Default to today if no date provided
   const date =
     body.date ||
-    new Date().toISOString().slice(0, 10);
+    today();
   const month = body.month || date.slice(0, 7);
 
   const row = {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import Modal from "../layout/Modal";
 import { api } from "../../lib/api";
-import { fmt, fmtP, fmtDate } from "../../lib/formatters";
+import { fmt, fmtP, fmtDate, today } from "../../lib/formatters";
 
 interface SettingsModalProps {
   open: boolean;
@@ -40,7 +40,7 @@ export default function SettingsModal({ open, onClose, onToast, onDataChange }: 
     const newHistory = [...paycheckHistory];
     if (originalPaycheck) {
       newHistory.push({
-        date: new Date().toISOString().slice(0, 10),
+        date: today(),
         amount: originalPaycheck,
       });
     }

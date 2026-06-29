@@ -12,6 +12,7 @@ import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { db } from "./index.js";
 import { accounts, subscriptions, expenses, settings } from "./schema.js";
+import { today as todayStr } from "../lib/date.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const exportPath = resolve(__dirname, "../../../data/export.json");
@@ -30,7 +31,7 @@ async function seed() {
 
   const raw = readFileSync(exportPath, "utf-8");
   const data = JSON.parse(raw);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayStr();
 
   console.log("🔄 Importing data...\n");
 
