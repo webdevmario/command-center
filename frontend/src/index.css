@@ -52,6 +52,13 @@ body::before {
   }
   input[type="number"] {
     @apply font-mono text-sm;
+    -moz-appearance: textfield; /* hide spinners in Firefox */
+  }
+  /* Hide native up/down spinners (dark arrows are hard to see on the dark theme) */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
   }
   select {
     @apply cursor-pointer;

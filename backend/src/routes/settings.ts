@@ -100,6 +100,7 @@ router.get("/data/export", (_req, res) => {
     paycheckHistory: settingsMap.paycheckHistory || [],
     budgetTargets: settingsMap.budgetTargets || {},
     budgetReimbursements: settingsMap.budgetReimbursements || {},
+    budgetNotes: settingsMap.budgetNotes || {},
   };
 
   res.json(exportData);
@@ -187,6 +188,8 @@ router.post("/data/import", (req, res) => {
       settingsToImport.push(["budgetTargets", data.budgetTargets]);
     if (data.budgetReimbursements)
       settingsToImport.push(["budgetReimbursements", data.budgetReimbursements]);
+    if (data.budgetNotes)
+      settingsToImport.push(["budgetNotes", data.budgetNotes]);
 
     for (const [key, value] of settingsToImport) {
       db.insert(settings)
